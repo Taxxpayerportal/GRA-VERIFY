@@ -278,7 +278,7 @@ function formatDate(value) {
 
   if (!value) return '-';
 
-  const parts = value.split('-');
+  const parts = String(value).split('-');
 
   if (parts.length !== 3) {
     return value;
@@ -316,15 +316,19 @@ function renderInvalid(message) {
 
 function renderDocument(doc) {
 
-  const today =
-    new Date().toISOString().slice(0, 10);
+  const today = new Date();
+
+  const todayString =
+    today.getFullYear() + '-' +
+    String(today.getMonth() + 1).padStart(2, '0') + '-' +
+    String(today.getDate()).padStart(2, '0');
 
   const expired =
     doc.valid_until &&
-    doc.valid_until < today;
+    doc.valid_until < todayString;
 
   const storedValid =
-    String(doc.status || '').toUpperCase()
+    String(doc.status || '').trim().toUpperCase()
     === 'VALID DOCUMENT';
 
   const valid =
@@ -437,7 +441,7 @@ function renderDocument(doc) {
 
 }
 
-function verifyDocument() {
+async function verifyDocument() {
 
   if (!documentId) {
 
@@ -448,114 +452,71 @@ function verifyDocument() {
     return;
   }
 
-  const xhr = new XMLHttpRequest();
+  try {
 
-  xhr.open(
-    'POST',
-    `${SUPABASE_URL}/rest/v1/rpc/verify_document`,
-    true
-  );
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/verify_document`,
+      {
+        method: 'POST',
 
-  xhr.timeout = 15000;
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`
+        },
 
-  xhr.setRequestHeader(
-    'Content-Type',
-    'application/json'
-  );
-
-  xhr.setRequestHeader(
-    'apikey',
-    SUPABASE_KEY
-  );
-
-  xhr.setRequestHeader(
-    'Authorization',
-    `Bearer ${SUPABASE_KEY}`
-  );
-
-  xhr.onload = function () {
-
-    if (xhr.status >= 200 && xhr.status < 300) {
-
-      try {
-
-        const data =
-          JSON.parse(xhr.responseText);
-
-        if (
-          Array.isArray(data) &&
-          data.length > 0
-        ) {
-
-          renderDocument(data[0]);
-
-        } else if (
-          data &&
-          typeof data === 'object' &&
-          !Array.isArray(data)
-        ) {
-
-          renderDocument(data);
-
-        } else {
-
-          renderInvalid(
-            'Document not found.'
-          );
-
-        }
-
-      } catch (error) {
-
-        console.error(
-          'Verification response error:',
-          error,
-          xhr.responseText
-        );
-
-        renderInvalid(
-          'Unable to read the verification response.'
-        );
-
+        body: JSON.stringify({
+          p_document_id: documentId
+        })
       }
+    );
 
-    } else {
+    const responseText = await response.text();
+
+    if (!response.ok) {
 
       console.error(
         'Supabase verification error:',
-        xhr.status,
-        xhr.responseText
+        response.status,
+        responseText
       );
 
-      renderInvalid(
-        'Unable to verify this document. Please try again.'
+      throw new Error(
+        `Verification service error (${response.status}).`
       );
 
     }
 
-  };
+    const data = JSON.parse(responseText);
 
-  xhr.onerror = function () {
+    if (Array.isArray(data) && data.length > 0) {
+
+      renderDocument(data[0]);
+
+    } else if (
+      data &&
+      typeof data === 'object' &&
+      !Array.isArray(data)
+    ) {
+
+      renderDocument(data);
+
+    } else {
+
+      renderInvalid('Document not found.');
+
+    }
+
+  } catch (error) {
+
+    console.error('Verification error:', error);
 
     renderInvalid(
-      'Unable to connect to the verification service. Please check your internet connection and try again.'
+      error.message ||
+      'Unable to connect to the verification service. Please try again.'
     );
 
-  };
-
-  xhr.ontimeout = function () {
-
-    renderInvalid(
-      'The verification service took too long to respond. Please try again.'
-    );
-
-  };
-
-  xhr.send(
-    JSON.stringify({
-      p_document_id: documentId
-    })
-  );
+  }
 
 }
 
