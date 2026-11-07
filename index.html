@@ -450,17 +450,18 @@ function verifyDocument() {
 
   const xhr = new XMLHttpRequest();
 
-  const requestURL =
-    `${SUPABASE_URL}/rest/v1/documents` +
-    `?select=*&document_id=eq.${encodeURIComponent(documentId)}`;
-
   xhr.open(
-    'GET',
-    requestURL,
+    'POST',
+    `${SUPABASE_URL}/rest/v1/rpc/verify_document`,
     true
   );
 
   xhr.timeout = 15000;
+
+  xhr.setRequestHeader(
+    'Content-Type',
+    'application/json'
+  );
 
   xhr.setRequestHeader(
     'apikey',
@@ -488,6 +489,14 @@ function verifyDocument() {
 
           renderDocument(data[0]);
 
+        } else if (
+          data &&
+          typeof data === 'object' &&
+          !Array.isArray(data)
+        ) {
+
+          renderDocument(data);
+
         } else {
 
           renderInvalid(
@@ -498,6 +507,12 @@ function verifyDocument() {
 
       } catch (error) {
 
+        console.error(
+          'Verification response error:',
+          error,
+          xhr.responseText
+        );
+
         renderInvalid(
           'Unable to read the verification response.'
         );
@@ -506,8 +521,14 @@ function verifyDocument() {
 
     } else {
 
+      console.error(
+        'Supabase verification error:',
+        xhr.status,
+        xhr.responseText
+      );
+
       renderInvalid(
-        'Unable to connect to the verification service.'
+        'Unable to verify this document. Please try again.'
       );
 
     }
@@ -530,7 +551,11 @@ function verifyDocument() {
 
   };
 
-  xhr.send();
+  xhr.send(
+    JSON.stringify({
+      p_document_id: documentId
+    })
+  );
 
 }
 
