@@ -450,22 +450,26 @@ function verifyDocument() {
 
   const xhr = new XMLHttpRequest();
 
+  const requestURL =
+    `${SUPABASE_URL}/rest/v1/documents` +
+    `?select=*&document_id=eq.${encodeURIComponent(documentId)}`;
+
   xhr.open(
-    'POST',
-    `${SUPABASE_URL}/rest/v1/rpc/verify_document`,
+    'GET',
+    requestURL,
     true
   );
 
   xhr.timeout = 15000;
 
   xhr.setRequestHeader(
-    'Content-Type',
-    'application/json'
+    'apikey',
+    SUPABASE_KEY
   );
 
   xhr.setRequestHeader(
-    'apikey',
-    SUPABASE_KEY
+    'Authorization',
+    `Bearer ${SUPABASE_KEY}`
   );
 
   xhr.onload = function () {
@@ -483,13 +487,6 @@ function verifyDocument() {
         ) {
 
           renderDocument(data[0]);
-
-        } else if (
-          data &&
-          typeof data === 'object'
-        ) {
-
-          renderDocument(data);
 
         } else {
 
@@ -533,11 +530,7 @@ function verifyDocument() {
 
   };
 
-  xhr.send(
-    JSON.stringify({
-      p_document_id: documentId
-    })
-  );
+  xhr.send();
 
 }
 
